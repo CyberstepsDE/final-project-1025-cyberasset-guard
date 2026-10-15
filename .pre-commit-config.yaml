@@ -1,0 +1,22 @@
+# Pre-commit hooks for CyberAsset Guard (ASSET-46).
+# One-time setup:  pip install pre-commit && pre-commit install
+# Run on everything: pre-commit run --all-files
+minimum_pre_commit_version: "3.5.0"
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.17.0                       # keep in sync with ruff in constraints.txt
+    hooks:
+      - id: ruff                       # lint (auto-fixes what it safely can)
+        args: [--fix]
+      - id: ruff-format                # formatter
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: check-added-large-files
+      - id: mixed-line-ending          # enforce the LF policy from .gitattributes
+        args: [--fix=lf]

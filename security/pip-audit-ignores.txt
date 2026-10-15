@@ -1,0 +1,10 @@
+# pip-audit waivers for the Python dependency scan (ASSET-81).
+#
+# One advisory id per line (the first token is used; PYSEC-.. / GHSA-.. / CVE-..).
+# Every waiver MUST carry a reason and an expiry date in a trailing comment, and be
+# reviewed before/at expiry. CI passes the first token of each non-comment line to
+# `pip-audit --ignore-vuln`.
+#
+#   GHSA-xxxx-xxxx-xxxx   # reason: not exploitable in our usage; fix pending upstream. expires: 2026-12-31
+#
+# No waivers at present.

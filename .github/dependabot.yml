@@ -1,0 +1,41 @@
+# Dependabot (ASSET-47): weekly update PRs for Python packages, the Docker base
+# image and GitHub Actions. CI runs on every Dependabot PR and must pass before
+# merge — including the dependency/constraints consistency checks in
+# tests/test_infrastructure.py (test_declared_dependencies_are_installed_in_range
+# and test_constraints_are_consistent_with_requirements).
+version: 2
+updates:
+  # Python dependencies declared in requirements.txt / requirements-dev.txt
+  # (and the exact pins in constraints.txt).
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    groups:
+      python:                       # one grouped PR instead of one per package
+        patterns: ["*"]
+    labels:
+      - "dependencies"
+    commit-message:
+      prefix: "deps"
+
+  # Dockerfile base image (python:3.14-slim).
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+    commit-message:
+      prefix: "deps(docker)"
+
+  # Pinned action SHAs in .github/workflows/*.yml.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+    commit-message:
+      prefix: "deps(ci)"

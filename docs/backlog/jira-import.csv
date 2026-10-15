@@ -1,0 +1,1871 @@
+"Issue ID","Parent ID","Issue Type","Summary","Epic Name","Description","Priority","Story Points","Labels","Labels","Labels","Labels","Blocked By","Blocked By","Blocked By"
+"E1","","Epic","Application Foundation and Infrastructure","Application Foundation and Infrastructure","Build, CI, schema migrations, code quality and dependency management for the FastAPI/SQLAlchemy/SQLite application. Runtime config, health checks, logging, backup and Docker exist on main; CI, migrations and quality tooling do not.
+
+* Backlog ref: E1","","","cyberasset-guard","","","","","",""
+"E2","","Epic","User and Access Management","User and Access Management","Authentication, role-based access control and the audit log. Implemented on branch feature/auth-rbac-audit (commit 453d973, not merged). Remaining: merge, hardening and enhancements (API tokens, rate limiting, MFA, SSO, audit retention).
+
+* Backlog ref: E2","","","cyberasset-guard","","","","","",""
+"E3","","Epic","Asset Inventory","Asset Inventory","Central inventory of IT assets (block 1). Core CRUD, search, filtering, lifecycle and web UI are complete on main. Remaining items are improvements only.
+
+* Backlog ref: E3","","","cyberasset-guard","","","","","",""
+"E4","","Epic","Asset Monitoring","Asset Monitoring","Network discovery, ports, services, versions, scheduled scans and change detection (block 2). The Monitoring module exists on main but is not linked to managed assets, has a target-validation security gap and no dedicated tests.
+
+* Backlog ref: E4","","","cyberasset-guard","","","","","",""
+"E5","","Epic","Vulnerability Management","Vulnerability Management","Correlate identified software with CVE data (NVD, CISA KEV) and maintain asset-to-finding relationships (block 3). Not implemented on main. An unreviewed prototype exists only on the local branch feature/correlation-risk-action and may be used as reference.
+
+* Backlog ref: E5","","","cyberasset-guard","","","","","",""
+"E6","","Epic","Context-Aware Risk Engine","Context-Aware Risk Engine","Explainable risk score combining CVSS, exposure, criticality, environment and exploitability (block 4). Not implemented on main.
+
+* Backlog ref: E6","","","cyberasset-guard","","","","","",""
+"E7","","Epic","Remediation and Verification","Remediation and Verification","Jira ticket creation, remediation status and re-scan verification (block 5), plus future SIEM integration. Not implemented on main.
+
+* Backlog ref: E7","","","cyberasset-guard","","","","","",""
+"E8","","Epic","Security and Quality Assurance","Security and Quality Assurance","Cross-cutting security reviews, automated security scanning and test gaps for existing functionality (Monitoring module, browser UI).
+
+* Backlog ref: E8","","","cyberasset-guard","","","","","",""
+"E9","","Epic","Deployment, Operations and Maintenance","Deployment, Operations and Maintenance","Production-like deployment (TLS), scheduled backups, logging operations, releases and repository hygiene. Local MVP deployment (Docker, health checks, manual backup) exists on main.
+
+* Backlog ref: E9","","","cyberasset-guard","","","","","",""
+"S1.1","E1","Task","Set up CI pipeline for tests and Docker build","","h3. User story / objective
+
+Technical objective: every push and pull request is tested automatically so that main stays releasable.
+
+h3. Description
+
+There is no CI configuration in the repository (no .github/workflows). Add a GitHub Actions workflow that installs requirements-dev.txt with constraints.txt, runs pytest on Python 3.11 (minimum supported) and 3.13, and runs the opt-in Docker deployment test (CAG_TEST_DOCKER=1 pytest -k docker) on Linux.
+
+h3. Business / technical value
+
+Prevents regressions from reaching main; the documented Python minimum (3.11) is currently untested.
+
+h3. Acceptance criteria
+
+* Workflow runs on push and on pull requests to main
+* Test job runs on Python 3.11 and 3.13 and fails the build on any test failure
+* Docker job builds the image and runs the Docker deployment test
+* Branch protection on main requires the CI checks to pass (configured by a repo admin)
+* README documents the CI and how to reproduce it locally
+
+h3. Security considerations
+
+Pin third-party actions to commit SHAs; the pipeline needs no secrets; use least-privilege GITHUB_TOKEN permissions (contents: read).
+
+h3. Testing requirements
+
+Open a test PR with a deliberately failing test and verify the check blocks the merge.
+
+h3. Planning
+
+* Backlog ref: S1.1
+* Category: Remaining work
+* Phase: Phase 0 - Close critical gaps now
+* Story points: 3 (estimate)","High","3","cyberasset-guard","ci","infrastructure","","","",""
+"S1.2","E1","Task","Introduce Alembic schema migrations with a baseline of the current schema","","h3. User story / objective
+
+Technical objective: schema changes (starting with Asset Monitoring) can be applied to existing databases without data loss.
+
+h3. Description
+
+Tables are created with SQLAlchemy create_all (asset_inventory, asset_tags, users, user_sessions, audit_events) and raw CREATE TABLE IF NOT EXISTS (Monitoring tables). create_all cannot alter existing tables. Add Alembic, create a baseline revision matching the current schema (including the audit_events append-only triggers and CHECK constraints) and a documented procedure to stamp existing databases.
+
+h3. Business / technical value
+
+Required before any column change to existing tables, e.g. linking monitoring hosts to assets (S4.2).
+
+h3. Acceptance criteria
+
+* alembic upgrade head on an empty database produces a schema identical to the current create_all + init_db schema (verified by comparing sqlite_master)
+* Existing databases can be stamped at the baseline without changes to data
+* Application startup refuses to start (clear log message) or upgrades automatically when migrations are pending - behaviour decided and documented
+* Backup is recommended/created before migrations in the documented procedure
+* README section 'Database initialization and migrations' is updated
+
+h3. Dependencies
+
+* S2.1 Review and merge login, RBAC and audit log (feature/auth-rbac-audit)
+
+h3. Security considerations
+
+Migrations must preserve the audit_events UPDATE/DELETE triggers.
+
+h3. Testing requirements
+
+Automated test: upgrade from empty DB and from a copy of a pre-migration DB; data and triggers intact.
+
+h3. Planning
+
+* Backlog ref: S1.2
+* Category: Technical debt
+* Phase: Phase 1 - Foundation and hardening
+* Story points: 5 (estimate)","High","5","cyberasset-guard","database","tech-debt","","S2.1","",""
+"S1.3","E1","Task","Add linting, formatting and type checking","","h3. User story / objective
+
+Technical objective: consistent code style and early detection of type errors.
+
+h3. Description
+
+No linter, formatter, type checker or pre-commit configuration exists. Add ruff (lint + format), mypy for app/assets, app/auth, app/audit (Monitoring may start with relaxed settings), a pre-commit configuration and .gitattributes enforcing LF line endings (current commits show CRLF conversion warnings on Windows).
+
+h3. Business / technical value
+
+Lower review effort and fewer defects; consistent line endings across Windows and Linux contributors.
+
+h3. Acceptance criteria
+
+* ruff and mypy run in CI (S1.1) and pass on main
+* .pre-commit-config.yaml runs ruff and basic hygiene hooks
+* .gitattributes normalises text files to LF
+* README documents the developer workflow
+
+h3. Dependencies
+
+* S1.1 Set up CI pipeline for tests and Docker build
+
+h3. Security considerations
+
+Enable ruff's flake8-bandit (S) rules as a first SAST layer.
+
+h3. Testing requirements
+
+CI job fails on a deliberately introduced lint error.
+
+h3. Planning
+
+* Backlog ref: S1.3
+* Category: Technical debt
+* Phase: Phase 1 - Foundation and hardening
+* Story points: 3 (estimate)","Medium","3","cyberasset-guard","code-quality","tech-debt","","S1.1","",""
+"S1.4","E1","Task","Automate dependency updates and refresh constraints.txt","","h3. User story / objective
+
+Technical objective: dependencies stay current and pinned versions are reproducible.
+
+h3. Description
+
+constraints.txt was generated on Windows with Python 3.13. Configure Dependabot (pip, Docker, GitHub Actions) and document how constraints.txt is regenerated and verified on Linux.
+
+h3. Business / technical value
+
+Security patches reach the application quickly without unreviewed version drift.
+
+h3. Acceptance criteria
+
+* Dependabot (or Renovate) opens PRs for pip, Dockerfile base image and actions
+* Documented procedure regenerates constraints.txt and the CI run validates it
+* Base image python:3.13-slim is updated through the same process
+
+h3. Dependencies
+
+* S1.1 Set up CI pipeline for tests and Docker build
+
+h3. Security considerations
+
+Review changelogs of security-relevant packages (fastapi, starlette, sqlalchemy).
+
+h3. Testing requirements
+
+CI must pass on every dependency PR before merge.
+
+h3. Planning
+
+* Backlog ref: S1.4
+* Category: Remaining work
+* Phase: Phase 1 - Foundation and hardening
+* Story points: 2 (estimate)","Medium","2","cyberasset-guard","dependencies","ci","","S1.1","",""
+"S1.5","E1","Story","Migrate Monitoring persistence from raw sqlite3 to SQLAlchemy","","h3. User story / objective
+
+Technical objective: one data-access layer, so Monitoring tables can use foreign keys, migrations and the shared session/transaction handling.
+
+h3. Description
+
+Asset Management, auth and audit use SQLAlchemy; Monitoring (app/db.py, app/monitoring/*) uses sqlite3 with its own connection handling. Port the Monitoring tables to SQLAlchemy models without changing the API contract.
+
+h3. Business / technical value
+
+Reduces duplicated infrastructure and makes cross-module transactions (scan + audit) possible.
+
+h3. Acceptance criteria
+
+* Monitoring tables are SQLAlchemy models managed by Alembic
+* All Monitoring API responses are unchanged (contract tests from S8.1 pass)
+* No raw SQL string building remains in the Monitoring module
+
+h3. Dependencies
+
+* S1.2 Introduce Alembic schema migrations with a baseline of the current schema
+* S8.1 Automated tests for the Monitoring module
+
+h3. Security considerations
+
+Keep parameterised queries; no behavioural change to access control.
+
+h3. Testing requirements
+
+S8.1 test suite passes unchanged before and after the migration.
+
+h3. Planning
+
+* Backlog ref: S1.5
+* Category: Technical debt
+* Phase: Phase 5 - Remediation, verification and future enhancements
+* Story points: 8 (estimate)","Low","8","cyberasset-guard","tech-debt","monitoring","database","S1.2","S8.1",""
+"S2.1","E2","Story","Review and merge login, RBAC and audit log (feature/auth-rbac-audit)","","h3. User story / objective
+
+As an administrator, I want the implemented login, role-based access control and audit log on main, so that the application is no longer usable without authentication.
+
+h3. Description
+
+Implemented and tested locally on branch feature/auth-rbac-audit (commit 453d973): scrypt password hashing, server-side sessions, lockout, roles viewer/analyst/admin, permission checks on all asset/monitoring/user/audit endpoints, append-only audit log, CSRF origin check, security headers, UI pages for login/users/audit. 154 tests pass locally (incl. Docker). The branch is not pushed and has not been reviewed by a second developer.
+
+h3. Business / technical value
+
+Closes the largest current security gap on main (no authentication at all).
+
+h3. Acceptance criteria
+
+* Branch pushed and pull request opened against main
+* Code review by a second developer using the security review checklist (subtask)
+* All tests pass in CI (S1.1) or, if CI is not ready yet, in a documented local run
+* Upgrade note executed on every existing environment: first administrator created with python -m app.maintenance create-user <name> --role admin
+* README security section reviewed and accurate
+
+h3. Security considerations
+
+Breaking change: after the merge the API and UI require login. Verify cookie flags, lockout, CSRF origin check and that no secrets reach logs or audit details.
+
+h3. Testing requirements
+
+Existing tests (test_auth.py, test_audit.py, updated test_assets.py / test_infrastructure.py); manual smoke test of login, roles and audit UI in a browser.
+
+h3. Planning
+
+* Backlog ref: S2.1
+* Category: Implemented, awaiting review/merge
+* Phase: Phase 0 - Close critical gaps now
+* Story points: 3 (estimate)","Highest","3","cyberasset-guard","security","auth","review","","",""
+"T2.1.1","S2.1","Sub-task","Security review checklist for auth/session/CSRF/audit code","","h3. Description
+
+Review app/auth/*, app/audit/*, the middleware in app/main.py and the UI changes against OWASP ASVS L1 session management and access control requirements.
+
+h3. Acceptance criteria
+
+* Checklist completed and attached to the PR
+* Findings filed as bugs or fixed before merge
+
+h3. Planning
+
+* Backlog ref: T2.1.1
+* Category: Implemented, awaiting review/merge
+* Phase: Phase 0 - Close critical gaps now","Highest","","cyberasset-guard","security","review","","","",""
+"T2.1.2","S2.1","Sub-task","Create first administrator on each environment after merge","","h3. Description
+
+Run create-user (local) or docker compose exec ... create-user (Docker). Store the initial password in the team password manager.
+
+h3. Acceptance criteria
+
+* Every environment has at least one active administrator
+* No password is stored in Git, chat or tickets
+
+h3. Planning
+
+* Backlog ref: T2.1.2
+* Category: Implemented, awaiting review/merge
+* Phase: Phase 0 - Close critical gaps now","High","","cyberasset-guard","operations","","","","",""
+"S2.2","E2","Story","Rate-limit login attempts per client IP","","h3. User story / objective
+
+As a security administrator, I want login attempts limited per IP address, so that password spraying across many accounts is slowed down.
+
+h3. Description
+
+Only per-account lockout exists (CAG_LOGIN_MAX_FAILURES). An attacker can try one password against many usernames without triggering a lockout. Add an IP-based limit for /auth/login.
+
+h3. Business / technical value
+
+Mitigates credential stuffing / password spraying.
+
+h3. Acceptance criteria
+
+* More than N failed logins per IP within a window return HTTP 429 (N and window configurable)
+* Successful logins are not blocked for other IPs
+* Rate-limit hits are written to the audit log (action auth.rate_limited)
+* Works behind a reverse proxy when proxy headers are trusted explicitly (documented)
+
+h3. Dependencies
+
+* S2.1 Review and merge login, RBAC and audit log (feature/auth-rbac-audit)
+
+h3. Security considerations
+
+Do not trust X-Forwarded-For unless configured; avoid unbounded in-memory state.
+
+h3. Testing requirements
+
+Automated tests for limit, window reset, audit entry and proxy-header handling.
+
+h3. Planning
+
+* Backlog ref: S2.2
+* Category: Remaining work
+* Phase: Phase 1 - Foundation and hardening
+* Story points: 3 (estimate)","High","3","cyberasset-guard","security","auth","","S2.1","",""
+"S2.3","E2","Story","Force password change after administrator-set passwords","","h3. User story / objective
+
+As a user, I want to be required to choose my own password after an administrator created or reset it, so that only I know my password.
+
+h3. Description
+
+Administrators set initial passwords and reset passwords (POST /users, POST /users/{id}/password, maintenance create-user/reset-password). Add a must_change_password flag that restricts the session to the password-change endpoint until a new password is set.
+
+h3. Business / technical value
+
+Administrators no longer know users' long-term passwords.
+
+h3. Acceptance criteria
+
+* Users created or reset by an admin/CLI must change their password at next login
+* Until changed, all endpoints except /auth/me, /auth/password and /auth/logout return 403
+* The UI redirects to the password-change page
+* Self-service changes clear the flag; audit entries record the forced change
+
+h3. Dependencies
+
+* S2.1 Review and merge login, RBAC and audit log (feature/auth-rbac-audit)
+* S1.2 Introduce Alembic schema migrations with a baseline of the current schema
+
+h3. Security considerations
+
+Flag must be enforced server-side, not only in the UI.
+
+h3. Testing requirements
+
+API tests for restricted session, flag clearing and audit; UI e2e test (S8.4).
+
+h3. Planning
+
+* Backlog ref: S2.3
+* Category: Remaining work
+* Phase: Phase 1 - Foundation and hardening
+* Story points: 3 (estimate)","High","3","cyberasset-guard","security","auth","","S2.1","S1.2",""
+"S2.4","E2","Story","Personal API tokens for automation","","h3. User story / objective
+
+As an analyst, I want a personal API token, so that scripts can use the API without my password or a browser session.
+
+h3. Description
+
+The API currently only accepts the session cookie. Add personal tokens (Bearer) that inherit the user's role, have an expiry, can be revoked and are shown once.
+
+h3. Business / technical value
+
+Enables integrations (CI, scripts, future SIEM export) without sharing passwords.
+
+h3. Acceptance criteria
+
+* Users can create, list (without secret) and revoke their own tokens; admins can revoke any token
+* Only a hash of the token is stored; the token is shown exactly once
+* Tokens expire (max lifetime configurable) and stop working when the user is disabled
+* Requests with a token are attributed to the user in the audit log (with token id)
+* CSRF origin check is not required for token-authenticated requests and still applies to cookies
+
+h3. Dependencies
+
+* S2.1 Review and merge login, RBAC and audit log (feature/auth-rbac-audit)
+* S1.2 Introduce Alembic schema migrations with a baseline of the current schema
+
+h3. Security considerations
+
+Constant-time comparison, token prefix for secret scanning, never log tokens.
+
+h3. Testing requirements
+
+API tests for lifecycle, expiry, revocation, RBAC parity with sessions and audit attribution.
+
+h3. Planning
+
+* Backlog ref: S2.4
+* Category: Remaining work
+* Phase: Phase 2 - Asset Monitoring (next development step)
+* Story points: 5 (estimate)","Medium","5","cyberasset-guard","auth","api","","S2.1","S1.2",""
+"S2.5","E2","Story","View and revoke active sessions","","h3. User story / objective
+
+As an administrator, I want to see and end active sessions, so that I can react to a lost device or a suspected account compromise.
+
+h3. Description
+
+Sessions are stored server-side (user_sessions) but there is no UI/API to list or revoke them individually; today they end only via logout, expiry, password change, role change or disable.
+
+h3. Business / technical value
+
+Faster incident response without disabling the whole account.
+
+h3. Acceptance criteria
+
+* Users see their own sessions (created, last seen, IP) and can end them
+* Administrators can list and end sessions of any user
+* Ending a session is audit-logged
+
+h3. Dependencies
+
+* S2.1 Review and merge login, RBAC and audit log (feature/auth-rbac-audit)
+
+h3. Security considerations
+
+Never expose token hashes through the API.
+
+h3. Testing requirements
+
+API + UI tests for listing and revocation.
+
+h3. Planning
+
+* Backlog ref: S2.5
+* Category: Remaining work
+* Phase: Phase 2 - Asset Monitoring (next development step)
+* Story points: 3 (estimate)","Medium","3","cyberasset-guard","auth","","","S2.1","",""
+"S2.6","E2","Story","Audit log retention, export and archival","","h3. User story / objective
+
+As a compliance officer, I want a defined retention period and an export of the audit log, so that personal data (usernames, IP addresses) is not kept longer than necessary and evidence can be archived.
+
+h3. Description
+
+audit_events is append-only via database triggers and grows without limit. Define a retention period, an export (CSV/JSON) for administrators and a controlled archival/purge procedure that works with the append-only triggers.
+
+h3. Business / technical value
+
+GDPR data minimisation and audit evidence for reviews.
+
+h3. Acceptance criteria
+
+* Retention period documented with its justification
+* Admins can export filtered audit events (CSV and JSON); exports are themselves audit-logged
+* Maintenance command archives and purges events older than the retention period, leaving an audit record of the purge
+* Normal API/application code still cannot update or delete audit events
+
+h3. Dependencies
+
+* S2.1 Review and merge login, RBAC and audit log (feature/auth-rbac-audit)
+
+h3. Security considerations
+
+CSV export must neutralise formula injection; purge only through the maintenance command with explicit confirmation.
+
+h3. Testing requirements
+
+Tests for export content/escaping, purge boundaries and trigger behaviour.
+
+h3. Planning
+
+* Backlog ref: S2.6
+* Category: Remaining work
+* Phase: Phase 2 - Asset Monitoring (next development step)
+* Story points: 5 (estimate)","Medium","5","cyberasset-guard","audit","compliance","","S2.1","",""
+"S2.7","E2","Story","Multi-factor authentication (TOTP) for administrators","","h3. User story / objective
+
+As an administrator, I want to protect my account with a second factor, so that a leaked password alone does not give access to user management and the audit log.
+
+h3. Description
+
+Future enhancement. TOTP enrolment, recovery codes, enforcement for the admin role.
+
+h3. Business / technical value
+
+Strong protection of the most privileged accounts.
+
+h3. Acceptance criteria
+
+* Admins can enrol TOTP with a QR code and confirm with a code
+* Login requires the TOTP code when enrolled; enforcement for admins configurable
+* One-time recovery codes; reset by another admin is audit-logged
+
+h3. Dependencies
+
+* S2.1 Review and merge login, RBAC and audit log (feature/auth-rbac-audit)
+
+h3. Security considerations
+
+Secrets encrypted at rest or stored with minimal exposure; replay protection.
+
+h3. Testing requirements
+
+API and e2e tests for enrolment, login and recovery.
+
+h3. Planning
+
+* Backlog ref: S2.7
+* Category: Future enhancement
+* Phase: Phase 4 - Context-Aware Risk Engine
+* Story points: 8 (estimate)","Medium","8","cyberasset-guard","auth","future","","S2.1","",""
+"S2.8","E2","Story","Single sign-on via OIDC","","h3. User story / objective
+
+As an organisation, I want users to sign in with our identity provider, so that accounts and offboarding are managed centrally.
+
+h3. Description
+
+Future enhancement. OIDC login with role mapping from IdP groups; local accounts remain for break-glass administration.
+
+h3. Business / technical value
+
+Central identity lifecycle and MFA from the IdP.
+
+h3. Acceptance criteria
+
+* OIDC authorization-code flow with PKCE
+* Group-to-role mapping configurable
+* Local admin login remains available as break-glass and is audit-logged
+
+h3. Dependencies
+
+* S2.1 Review and merge login, RBAC and audit log (feature/auth-rbac-audit)
+
+h3. Security considerations
+
+Validate issuer, audience, nonce and state; no tokens in logs.
+
+h3. Testing requirements
+
+Integration tests against a test IdP (e.g. Keycloak container).
+
+h3. Planning
+
+* Backlog ref: S2.8
+* Category: Future enhancement
+* Phase: Phase 5 - Remediation, verification and future enhancements
+* Story points: 13 (estimate)","Low","13","cyberasset-guard","auth","future","","S2.1","",""
+"S3.1","E3","Story","Show asset change history to analysts on the asset detail page","","h3. User story / objective
+
+As an analyst, I want to see who changed an asset and what changed, so that I can understand its current state without administrator rights.
+
+h3. Description
+
+Field-level diffs are recorded in the audit log (asset.*), but only administrators (audit:read) can read them; the detail page links to the admin audit view. Add a read-only history endpoint/section scoped to one asset's asset.* events for users with assets:read.
+
+h3. Business / technical value
+
+Traceability for the people who maintain the inventory.
+
+h3. Acceptance criteria
+
+* GET /assets/{id}/history returns only asset.* events of that asset
+* Visible to all roles with assets:read; IP addresses are not shown to non-admins
+* Detail page shows a 'History' section with from -> to values
+
+h3. Dependencies
+
+* S2.1 Review and merge login, RBAC and audit log (feature/auth-rbac-audit)
+
+h3. Security considerations
+
+Must not leak other event types (auth, user management) or IP addresses.
+
+h3. Testing requirements
+
+API tests for scoping and field filtering per role; UI check.
+
+h3. Planning
+
+* Backlog ref: S3.1
+* Category: Remaining work
+* Phase: Phase 2 - Asset Monitoring (next development step)
+* Story points: 3 (estimate)","Medium","3","cyberasset-guard","assets","audit","","S2.1","",""
+"S3.2","E3","Story","Bulk import and export of assets (CSV)","","h3. User story / objective
+
+As an analyst, I want to import and export assets as CSV, so that I can onboard an existing inventory and share it with other tools.
+
+h3. Description
+
+Assets can only be created one by one (UI/API).
+
+h3. Business / technical value
+
+Fast onboarding of existing inventories (CMDB, spreadsheets).
+
+h3. Acceptance criteria
+
+* Import validates every row with the same rules as POST /assets and imports nothing if any row is invalid (row-level error report)
+* Import is limited in size and requires assets:write
+* Export respects current filters and requires assets:read
+* Each import is audit-logged with the number of created assets
+
+h3. Dependencies
+
+* S2.1 Review and merge login, RBAC and audit log (feature/auth-rbac-audit)
+
+h3. Security considerations
+
+Neutralise CSV formula injection in exports; enforce upload size limits.
+
+h3. Testing requirements
+
+Tests with valid, invalid, oversized and malicious CSV files.
+
+h3. Planning
+
+* Backlog ref: S3.2
+* Category: Remaining work
+* Phase: Phase 3 - Vulnerability Management
+* Story points: 5 (estimate)","Medium","5","cyberasset-guard","assets","","","S2.1","",""
+"S3.3","E3","Story","Paginate the asset overview beyond 500 assets","","h3. User story / objective
+
+As a user, I want to page through large inventories, so that no asset is hidden.
+
+h3. Description
+
+The UI loads at most 500 assets and shows a 'showing first 500' hint; the API already supports limit/offset.
+
+h3. Business / technical value
+
+Usability for larger inventories.
+
+h3. Acceptance criteria
+
+* UI pages through all results using limit/offset
+* Total count stays visible
+* Filters persist across pages
+
+h3. Security considerations
+
+Keep the API limit cap (500).
+
+h3. Testing requirements
+
+UI e2e test with > 500 assets (S8.4).
+
+h3. Planning
+
+* Backlog ref: S3.3
+* Category: Remaining work
+* Phase: Phase 3 - Vulnerability Management
+* Story points: 2 (estimate)","Low","2","cyberasset-guard","assets","ui","","","",""
+"S3.4","E3","Story","Link asset owners to user accounts or teams","","h3. User story / objective
+
+As a security lead, I want asset ownership to reference real users or teams, so that remediation tickets can be assigned automatically.
+
+h3. Description
+
+Future enhancement. owner is free text today.
+
+h3. Business / technical value
+
+Prerequisite for automatic assignment in remediation (E7).
+
+h3. Acceptance criteria
+
+* Owner can reference a user or team
+* Existing free-text owners are migrated or kept as legacy text
+* Deactivated users are flagged as invalid owners
+
+h3. Dependencies
+
+* S2.1 Review and merge login, RBAC and audit log (feature/auth-rbac-audit)
+* S1.2 Introduce Alembic schema migrations with a baseline of the current schema
+
+h3. Security considerations
+
+Respect RBAC when listing users for selection.
+
+h3. Testing requirements
+
+Migration test with existing free-text owners.
+
+h3. Planning
+
+* Backlog ref: S3.4
+* Category: Future enhancement
+* Phase: Phase 5 - Remediation, verification and future enhancements
+* Story points: 5 (estimate)","Low","5","cyberasset-guard","assets","future","","S2.1","S1.2",""
+"B4.1","E4","Bug","Scan targets are passed to nmap without validation (argument injection)","","h3. User story / objective
+
+As a security administrator, I want scan targets validated before they reach nmap, so that a user cannot inject nmap options.
+
+h3. Description
+
+Verified in code: app/monitoring/scanner.py (lines 168-227) splits the user-supplied target on whitespace and appends the parts to the nmap argument list. A target beginning with '-' (e.g. '--script=...', '-iL /path', '-oN /path') is interpreted as an nmap option. Not exploited or tested here (nmap is not installed in the review environment). Endpoints: POST /monitoring/discover, /portscan, /versionscan, /schedules; after S2.1 only analysts/admins can call them, on current main anyone can.
+
+h3. Business / technical value
+
+Prevents reading/writing server files or running nmap scripts through the API.
+
+h3. Acceptance criteria
+
+* Each target token must be a valid IPv4/IPv6 address, CIDR, nmap octet range or hostname; anything else returns 422 with a clear message
+* Tokens starting with '-' are always rejected
+* Port specs are validated against an allow-list pattern
+* Same validation applies to stored schedules (existing invalid schedules are disabled with a log entry)
+
+h3. Security considerations
+
+Treat as a security bug; fix before exposing the Monitoring API to any network.
+
+h3. Testing requirements
+
+Unit tests with malicious targets (option injection, shell metacharacters, very long input); tests assert nmap is never invoked for rejected input.
+
+h3. Planning
+
+* Backlog ref: B4.1
+* Category: Remaining work
+* Phase: Phase 0 - Close critical gaps now
+* Story points: 2 (estimate)","Highest","2","cyberasset-guard","security","monitoring","bug","","",""
+"B4.2","E4","Bug","Scan schedules accept 1-second intervals and list endpoints have no upper limit","","h3. User story / objective
+
+As an operator, I want sane limits on scan schedules and list sizes, so that the scanner and database cannot be overloaded by mistake.
+
+h3. Description
+
+Verified in code: ScheduleRequest.interval_seconds only requires >= 1; /monitoring/scans and /monitoring/changes accept any 'limit' value.
+
+h3. Business / technical value
+
+Protects the host, the database and scanned networks.
+
+h3. Acceptance criteria
+
+* Minimum schedule interval configurable (default e.g. 15 minutes)
+* limit parameters capped (e.g. 500) and validated
+* Concurrent scans limited
+
+h3. Dependencies
+
+* B4.1 Scan targets are passed to nmap without validation (argument injection)
+
+h3. Security considerations
+
+Availability (DoS) protection.
+
+h3. Testing requirements
+
+Validation tests for boundaries.
+
+h3. Planning
+
+* Backlog ref: B4.2
+* Category: Remaining work
+* Phase: Phase 1 - Foundation and hardening
+* Story points: 1 (estimate)","Medium","1","cyberasset-guard","monitoring","bug","","B4.1","",""
+"S4.1","E4","Story","Restrict scans to authorised network ranges","","h3. User story / objective
+
+As a security administrator, I want scans limited to approved network ranges, so that the tool cannot be used to scan third-party systems.
+
+h3. Description
+
+Any target accepted by nmap can be scanned today. Add a configurable allow-list (CAG_SCAN_ALLOWED_NETWORKS, default private ranges) checked after DNS resolution.
+
+h3. Business / technical value
+
+Legal and ethical safety: scanning without authorisation can be illegal.
+
+h3. Acceptance criteria
+
+* Targets outside the allow-list are rejected with 403 and audit-logged
+* Hostnames are resolved and every resolved address must be inside the allow-list
+* CIDR/range targets must lie completely inside the allow-list
+* Default and override documented
+
+h3. Dependencies
+
+* B4.1 Scan targets are passed to nmap without validation (argument injection)
+
+h3. Security considerations
+
+Resolve DNS once and pass the resolved addresses to nmap to avoid DNS rebinding.
+
+h3. Testing requirements
+
+Unit tests for inside/outside/partially-overlapping ranges and hostnames.
+
+h3. Planning
+
+* Backlog ref: S4.1
+* Category: Remaining work
+* Phase: Phase 0 - Close critical gaps now
+* Story points: 3 (estimate)","Highest","3","cyberasset-guard","security","monitoring","","B4.1","",""
+"S4.2","E4","Story","Link discovered hosts to managed assets","","h3. User story / objective
+
+As an analyst, I want hosts found by scans matched to inventory assets, so that monitoring results belong to the right asset.
+
+h3. Description
+
+The Monitoring 'assets' table (hosts keyed by IP) and asset_inventory (UUID) are separate; no code connects them. Add a link from discovered hosts to asset_inventory.id with automatic matching by IP/hostname and manual confirmation; unmatched hosts become 'discovered, unmanaged' candidates that an analyst can turn into assets.
+
+h3. Business / technical value
+
+Core of block 2: monitoring data in asset context.
+
+h3. Acceptance criteria
+
+* Scan results of a host with a matching active asset are linked automatically (rule documented)
+* Ambiguous matches are not linked automatically and are shown for manual decision
+* Unmatched hosts are listed and can be converted into an asset (prefilled form)
+* IP changes of an asset do not break existing links (link is by asset id)
+* Linking/unlinking is audit-logged
+
+h3. Dependencies
+
+* S1.2 Introduce Alembic schema migrations with a baseline of the current schema
+* S2.1 Review and merge login, RBAC and audit log (feature/auth-rbac-audit)
+* B4.1 Scan targets are passed to nmap without validation (argument injection)
+
+h3. Security considerations
+
+Only assets:write may link or create assets from candidates.
+
+h3. Testing requirements
+
+Tests for exact, ambiguous and no match; IP change; inactive assets.
+
+h3. Planning
+
+* Backlog ref: S4.2
+* Category: Remaining work
+* Phase: Phase 2 - Asset Monitoring (next development step)
+* Story points: 8 (estimate)","High","8","cyberasset-guard","monitoring","assets","","S1.2","S2.1","B4.1"
+"T4.2.1","S4.2","Sub-task","Alembic migration: link column/table between monitoring hosts and asset_inventory","","h3. Description
+
+Add the foreign key with ON DELETE behaviour that never deletes scan history.
+
+h3. Acceptance criteria
+
+* Migration up/down tested on a copy of real data
+
+h3. Planning
+
+* Backlog ref: T4.2.1
+* Category: Remaining work
+* Phase: Phase 2 - Asset Monitoring (next development step)","High","","cyberasset-guard","database","","","","",""
+"T4.2.2","S4.2","Sub-task","Matching service and candidate list API","","h3. Description
+
+Match by IP and hostname; expose GET /monitoring/candidates and POST link/unlink endpoints.
+
+h3. Acceptance criteria
+
+* Endpoints documented in OpenAPI and permission-checked
+
+h3. Planning
+
+* Backlog ref: T4.2.2
+* Category: Remaining work
+* Phase: Phase 2 - Asset Monitoring (next development step)","High","","cyberasset-guard","monitoring","","","","",""
+"T4.2.3","S4.2","Sub-task","UI: candidate hosts view and 'create asset from host'","","h3. Description
+
+New page listing unmatched hosts with action to create or link an asset.
+
+h3. Acceptance criteria
+
+* Hidden for viewers; actions require assets:write
+
+h3. Planning
+
+* Backlog ref: T4.2.3
+* Category: Remaining work
+* Phase: Phase 2 - Asset Monitoring (next development step)","Medium","","cyberasset-guard","ui","","","","",""
+"S4.3","E4","Story","Show monitoring results on the asset detail page","","h3. User story / objective
+
+As an analyst, I want to see reachability, open ports, services, versions and recent changes on an asset's page, so that I understand its exposure at a glance.
+
+h3. Description
+
+The detail page is prepared for additional sections (DETAIL_SECTIONS in app/web/static/app.js) but shows no monitoring data.
+
+h3. Business / technical value
+
+Makes block 2 usable in the UI.
+
+h3. Acceptance criteria
+
+* Section shows last scan time, reachability, open ports with service/product/version
+* Recent changes (port opened/closed, version change) listed
+* Clear 'not scanned yet' state; no fabricated data
+
+h3. Dependencies
+
+* S4.2 Link discovered hosts to managed assets
+
+h3. Security considerations
+
+Escape all scanner-derived strings (banners are attacker-controlled).
+
+h3. Testing requirements
+
+API tests; UI e2e test with seeded scan data (S8.4).
+
+h3. Planning
+
+* Backlog ref: S4.3
+* Category: Remaining work
+* Phase: Phase 2 - Asset Monitoring (next development step)
+* Story points: 5 (estimate)","High","5","cyberasset-guard","monitoring","ui","","S4.2","",""
+"S4.4","E4","Story","Scan an asset on demand and schedule recurring scans from the UI","","h3. User story / objective
+
+As an analyst, I want to start or schedule a scan for an asset from its page, so that I do not need the CLI or raw API.
+
+h3. Description
+
+Scans and schedules exist only as API/CLI operations on raw targets.
+
+h3. Business / technical value
+
+Self-service monitoring for analysts.
+
+h3. Acceptance criteria
+
+* 'Scan now' (discovery/port/version) on the asset page for monitoring:run
+* Schedules can be created/removed per asset with the minimum interval from B4.2
+* Scan status and errors (e.g. nmap missing) shown clearly
+* Actions audit-logged (already done by middleware; verify)
+
+h3. Dependencies
+
+* S4.2 Link discovered hosts to managed assets
+* S4.1 Restrict scans to authorised network ranges
+* B4.2 Scan schedules accept 1-second intervals and list endpoints have no upper limit
+
+h3. Security considerations
+
+Targets taken from the asset, still validated by B4.1/S4.1.
+
+h3. Testing requirements
+
+API + e2e tests with a fake scanner.
+
+h3. Planning
+
+* Backlog ref: S4.4
+* Category: Remaining work
+* Phase: Phase 2 - Asset Monitoring (next development step)
+* Story points: 5 (estimate)","Medium","5","cyberasset-guard","monitoring","ui","","S4.2","S4.1","B4.2"
+"T4.5","E4","Task","Include nmap in the Docker image","","h3. User story / objective
+
+Technical objective: Monitoring works in the containerised deployment.
+
+h3. Description
+
+The Dockerfile deliberately omits nmap (scans fail with 'nmap binary not found'). Install nmap, keep the non-root user (TCP connect scans -sT work without root) and document limits (no SYN/OS detection without extra capabilities).
+
+h3. Business / technical value
+
+Monitoring available in the documented deployment.
+
+h3. Acceptance criteria
+
+* Image contains nmap; container still runs as uid 10001
+* Docker test runs a version scan against a test service in the compose network
+* Image size and added CVEs reviewed (S8.2 image scan)
+
+h3. Dependencies
+
+* B4.1 Scan targets are passed to nmap without validation (argument injection)
+* S4.1 Restrict scans to authorised network ranges
+
+h3. Security considerations
+
+Do not add NET_RAW/NET_ADMIN capabilities by default.
+
+h3. Testing requirements
+
+Extend the Docker deployment test.
+
+h3. Planning
+
+* Backlog ref: T4.5
+* Category: Remaining work
+* Phase: Phase 2 - Asset Monitoring (next development step)
+* Story points: 2 (estimate)","Medium","2","cyberasset-guard","docker","monitoring","","B4.1","S4.1",""
+"S4.6","E4","Story","Notify on relevant monitoring changes","","h3. User story / objective
+
+As an analyst, I want to be notified when a new port opens or a service version changes on a critical asset, so that I can react quickly.
+
+h3. Description
+
+Future enhancement. Change detection exists (changes table) but nobody is notified.
+
+h3. Business / technical value
+
+Faster reaction to exposure changes.
+
+h3. Acceptance criteria
+
+* Rules by asset criticality / change type
+* Notification channel configurable (e-mail or webhook)
+* Notifications audit-logged; no secrets in payloads
+
+h3. Dependencies
+
+* S4.2 Link discovered hosts to managed assets
+
+h3. Security considerations
+
+Webhook URLs validated; outbound allow-list.
+
+h3. Testing requirements
+
+Tests with a fake channel.
+
+h3. Planning
+
+* Backlog ref: S4.6
+* Category: Future enhancement
+* Phase: Phase 5 - Remediation, verification and future enhancements
+* Story points: 5 (estimate)","Low","5","cyberasset-guard","monitoring","future","","S4.2","",""
+"S5.1","E5","Story","Normalise detected and manual software to CPE identifiers","","h3. User story / objective
+
+As the vulnerability engine, I want software identified as CPE vendor/product/version, so that it can be matched against NVD data.
+
+h3. Description
+
+Nmap product/version strings (e.g. 'OpenSSH 8.2p1 Ubuntu 4ubuntu0.5') must be mapped to CPE (openbsd:openssh:8.2p1). Include manual software entries for assets. A mapping catalogue and version parser exist in the unreviewed prototype branch feature/correlation-risk-action (reference only).
+
+h3. Business / technical value
+
+Prerequisite for any CVE correlation.
+
+h3. Acceptance criteria
+
+* Catalogue maps common products (OpenSSH, Apache httpd, nginx, IIS, Exim, vsftpd, ...) and nmap CPE output
+* Distribution suffixes are stripped and kept for display
+* Unknown products are reported as 'unmapped' instead of guessed
+* Manual software can be added to an asset (assets:write, audit-logged)
+
+h3. Dependencies
+
+* S4.2 Link discovered hosts to managed assets
+
+h3. Security considerations
+
+Treat banners as untrusted input.
+
+h3. Testing requirements
+
+Table-driven tests for mapping and version comparison (e.g. 8.2p1 < 9.3p2, 2.4.49 vs 2.4.50).
+
+h3. Planning
+
+* Backlog ref: S5.1
+* Category: Remaining work
+* Phase: Phase 3 - Vulnerability Management
+* Story points: 5 (estimate)","High","5","cyberasset-guard","vulnerability","","","S4.2","",""
+"S5.2","E5","Story","Retrieve CVE data from the NVD API with caching","","h3. User story / objective
+
+As the vulnerability engine, I want CVEs for each product from the NVD API with version ranges, so that affected assets can be identified.
+
+h3. Description
+
+Query NVD CVE API 2.0 per vendor/product, evaluate version ranges locally, cache responses, respect rate limits, optional API key, offline seed data for tests and air-gapped use.
+
+h3. Business / technical value
+
+Authoritative vulnerability data.
+
+h3. Acceptance criteria
+
+* Version ranges (start/end including/excluding) evaluated correctly
+* Platform-specific (AND) configurations handled or explicitly excluded with documentation
+* Responses cached (configurable lifetime); stale cache used when NVD is unreachable
+* Rate limits respected with and without API key
+* NVD API key read from environment, never logged
+
+h3. Dependencies
+
+* S5.1 Normalise detected and manual software to CPE identifiers
+
+h3. Security considerations
+
+Outbound HTTPS only to the NVD host; validate and size-limit responses.
+
+h3. Testing requirements
+
+Tests with recorded NVD fixtures; one opt-in live test.
+
+h3. Planning
+
+* Backlog ref: S5.2
+* Category: Remaining work
+* Phase: Phase 3 - Vulnerability Management
+* Story points: 8 (estimate)","High","8","cyberasset-guard","vulnerability","integration","","S5.1","",""
+"S5.3","E5","Story","Flag actively exploited CVEs using the CISA KEV catalogue","","h3. User story / objective
+
+As an analyst, I want to know which CVEs are actively exploited, so that I fix those first.
+
+h3. Description
+
+Download and cache the CISA Known Exploited Vulnerabilities feed.
+
+h3. Business / technical value
+
+Key input for prioritisation and the risk engine.
+
+h3. Acceptance criteria
+
+* KEV feed cached and refreshed daily
+* Findings show a KEV flag
+* Works offline with the last cached copy
+
+h3. Dependencies
+
+* S5.2 Retrieve CVE data from the NVD API with caching
+
+h3. Security considerations
+
+Validate feed format.
+
+h3. Testing requirements
+
+Fixture-based tests.
+
+h3. Planning
+
+* Backlog ref: S5.3
+* Category: Remaining work
+* Phase: Phase 3 - Vulnerability Management
+* Story points: 2 (estimate)","Medium","2","cyberasset-guard","vulnerability","integration","","S5.2","",""
+"S5.4","E5","Story","Findings: asset-to-CVE relationship with lifecycle","","h3. User story / objective
+
+As an analyst, I want each affected asset/CVE pair stored as a finding with a status, so that I can track it until it is fixed.
+
+h3. Description
+
+Persist findings (asset id, CVE, software, version, port, source) with statuses open, in_remediation, resolved, verified_fixed, accepted_risk; re-correlate after scans and context changes.
+
+h3. Business / technical value
+
+Persistent vulnerability tracking per asset.
+
+h3. Acceptance criteria
+
+* Correlation creates, updates and closes findings idempotently
+* Findings that disappear after a re-scan are closed (verified_fixed if a ticket existed)
+* A returning vulnerable version reopens the finding
+* Risk acceptance requires a reason and is audit-logged
+* Findings are never hard-deleted
+
+h3. Dependencies
+
+* S5.2 Retrieve CVE data from the NVD API with caching
+* S1.2 Introduce Alembic schema migrations with a baseline of the current schema
+
+h3. Security considerations
+
+Status changes require appropriate permissions (new permission findings:write).
+
+h3. Testing requirements
+
+Lifecycle tests: new, unchanged, fixed, regression, accepted.
+
+h3. Planning
+
+* Backlog ref: S5.4
+* Category: Remaining work
+* Phase: Phase 3 - Vulnerability Management
+* Story points: 8 (estimate)","High","8","cyberasset-guard","vulnerability","","","S5.2","S1.2",""
+"T5.4.1","S5.4","Sub-task","Data model and migration for findings","","h3. Description
+
+SQLAlchemy model + Alembic migration, unique (asset, CVE, product).
+
+h3. Acceptance criteria
+
+* Migration tested up and down
+
+h3. Planning
+
+* Backlog ref: T5.4.1
+* Category: Remaining work
+* Phase: Phase 3 - Vulnerability Management","High","","cyberasset-guard","database","","","","",""
+"T5.4.2","S5.4","Sub-task","New permissions findings:read / findings:write in the RBAC matrix","","h3. Description
+
+Extend app/auth/permissions.py and tests in test_auth.py.
+
+h3. Acceptance criteria
+
+* Matrix test covers the new permissions
+
+h3. Planning
+
+* Backlog ref: T5.4.2
+* Category: Remaining work
+* Phase: Phase 3 - Vulnerability Management","High","","cyberasset-guard","auth","","","","",""
+"S5.5","E5","Story","Findings list and asset findings section in the UI","","h3. User story / objective
+
+As an analyst, I want to browse findings across assets and per asset, so that I can work through them.
+
+h3. Description
+
+List with filters (severity, KEV, status, asset) and a findings section on the asset page.
+
+h3. Business / technical value
+
+Makes block 3 usable.
+
+h3. Acceptance criteria
+
+* Global findings list with filters and paging
+* Asset page shows its findings
+* Links to NVD for each CVE
+* Viewer read-only
+
+h3. Dependencies
+
+* S5.4 Findings: asset-to-CVE relationship with lifecycle
+
+h3. Security considerations
+
+Escape CVE descriptions and banners.
+
+h3. Testing requirements
+
+UI e2e tests (S8.4).
+
+h3. Planning
+
+* Backlog ref: S5.5
+* Category: Remaining work
+* Phase: Phase 3 - Vulnerability Management
+* Story points: 5 (estimate)","Medium","5","cyberasset-guard","vulnerability","ui","","S5.4","",""
+"S5.6","E5","Story","Reduce false positives from distribution backports","","h3. User story / objective
+
+As an analyst, I want distribution-patched packages recognised, so that I do not chase CVEs that are already fixed (e.g. Ubuntu OpenSSH 8.2p1-4ubuntu0.x).
+
+h3. Description
+
+Future enhancement. Upstream-version matching flags backported fixes as vulnerable.
+
+h3. Business / technical value
+
+Trust in the findings list.
+
+h3. Acceptance criteria
+
+* Approach evaluated (OS advisories / OVAL)
+* Decision documented
+
+h3. Dependencies
+
+* S5.4 Findings: asset-to-CVE relationship with lifecycle
+
+h3. Testing requirements
+
+Fixture-based tests for known backports.
+
+h3. Planning
+
+* Backlog ref: S5.6
+* Category: Future enhancement
+* Phase: Phase 5 - Remediation, verification and future enhancements
+* Story points: 8 (estimate)","Low","8","cyberasset-guard","vulnerability","future","","S5.4","",""
+"S6.1","E6","Story","Explainable contextual risk score per finding","","h3. User story / objective
+
+As an analyst, I want each finding scored 0-100 from CVSS, internet exposure, asset criticality, environment and exploitability with an explanation, so that I fix the riskiest issues first.
+
+h3. Description
+
+Implements block 4. Must use the actual asset fields: internet_facing yes/no/unknown, criticality low..critical, environment development..production. Define how 'unknown' exposure is scored.
+
+h3. Business / technical value
+
+Prioritisation by real risk instead of CVSS alone.
+
+h3. Acceptance criteria
+
+* Score and level (Low/Medium/High/Critical) computed per finding
+* Per-factor points and a human-readable 'WHY' stored with the finding
+* Scoring model documented and exposed read-only via the API
+* Design example reproduces: CVSS 9.8, internet-facing, critical production asset, public exploit -> Critical (exact value per agreed weights)
+
+h3. Dependencies
+
+* S5.4 Findings: asset-to-CVE relationship with lifecycle
+* S5.3 Flag actively exploited CVEs using the CISA KEV catalogue
+* T6.4 Agree on risk model weights with stakeholders
+
+h3. Testing requirements
+
+Table-driven unit tests for each factor and level boundary.
+
+h3. Planning
+
+* Backlog ref: S6.1
+* Category: Remaining work
+* Phase: Phase 4 - Context-Aware Risk Engine
+* Story points: 5 (estimate)","High","5","cyberasset-guard","risk","","","S5.4","S5.3","T6.4"
+"T6.4","E6","Task","Agree on risk model weights with stakeholders","","h3. User story / objective
+
+Technical objective: the scoring weights are a documented, agreed decision.
+
+h3. Description
+
+Workshop with security stakeholders on factor weights, level thresholds and treatment of 'unknown' values.
+
+h3. Business / technical value
+
+Avoids rework and builds trust in scores.
+
+h3. Acceptance criteria
+
+* Weights and thresholds documented
+* Sign-off recorded in the ticket
+
+h3. Planning
+
+* Backlog ref: T6.4
+* Category: Remaining work
+* Phase: Phase 4 - Context-Aware Risk Engine
+* Story points: 2 (estimate)","High","2","cyberasset-guard","risk","decision","","","",""
+"S6.2","E6","Story","Recalculate risk when asset context or threat data changes","","h3. User story / objective
+
+As an analyst, I want risk scores to update when an asset's criticality, environment or exposure changes or a CVE becomes KEV-listed, so that priorities stay correct.
+
+h3. Description
+
+Trigger re-scoring on asset updates (asset.update) and intel refresh.
+
+h3. Business / technical value
+
+Scores never go stale.
+
+h3. Acceptance criteria
+
+* Changing criticality/environment/internet_facing re-scores that asset's findings in the same request
+* KEV refresh re-scores affected findings
+* Risk history per asset stored
+
+h3. Dependencies
+
+* S6.1 Explainable contextual risk score per finding
+
+h3. Testing requirements
+
+Tests for each trigger.
+
+h3. Planning
+
+* Backlog ref: S6.2
+* Category: Remaining work
+* Phase: Phase 4 - Context-Aware Risk Engine
+* Story points: 3 (estimate)","Medium","3","cyberasset-guard","risk","","","S6.1","",""
+"S6.3","E6","Story","Risk overview: prioritised findings and riskiest assets","","h3. User story / objective
+
+As a security lead, I want a prioritised view of findings and assets by risk, so that I can plan remediation work.
+
+h3. Description
+
+Overview page (no complex analytics): top findings, counts by level, riskiest assets.
+
+h3. Business / technical value
+
+Decision support for remediation planning.
+
+h3. Acceptance criteria
+
+* Findings sorted by risk with WHY visible
+* Counts per level
+* Filter by environment/owner
+
+h3. Dependencies
+
+* S6.1 Explainable contextual risk score per finding
+
+h3. Testing requirements
+
+UI e2e test.
+
+h3. Planning
+
+* Backlog ref: S6.3
+* Category: Remaining work
+* Phase: Phase 4 - Context-Aware Risk Engine
+* Story points: 5 (estimate)","Medium","5","cyberasset-guard","risk","ui","","S6.1","",""
+"S7.1","E7","Story","Create Jira remediation tickets from findings","","h3. User story / objective
+
+As an analyst, I want to create a Jira ticket from a finding with risk, explanation and remediation steps, so that the owner can fix it in their normal workflow.
+
+h3. Description
+
+Jira Cloud REST v3 integration configured via environment (URL, user, API token, project, issue type). Idempotent per finding; priority mapped from risk level; simulated mode when not configured.
+
+h3. Business / technical value
+
+Closes the loop from detection to action (block 5).
+
+h3. Acceptance criteria
+
+* Ticket contains CVE, asset, risk score, WHY and remediation steps
+* Creating twice returns the existing ticket
+* Priority mapping configurable; missing fields on the Jira screen handled gracefully
+* Ticket key/link stored on the finding; action audit-logged
+
+h3. Dependencies
+
+* S5.4 Findings: asset-to-CVE relationship with lifecycle
+* S6.1 Explainable contextual risk score per finding
+
+h3. Security considerations
+
+API token only from environment/secret store; never in DB, logs, audit or UI; outbound host allow-list.
+
+h3. Testing requirements
+
+Tests against a mocked Jira API; one opt-in test against a Jira sandbox.
+
+h3. Planning
+
+* Backlog ref: S7.1
+* Category: Remaining work
+* Phase: Phase 5 - Remediation, verification and future enhancements
+* Story points: 8 (estimate)","High","8","cyberasset-guard","remediation","integration","","S5.4","S6.1",""
+"S7.2","E7","Story","Re-scan and verify risk reduction","","h3. User story / objective
+
+As an analyst, I want to re-scan an asset after patching and see the risk before and after, so that the fix is verified.
+
+h3. Description
+
+Trigger a version scan for the asset, re-correlate and show closed findings and the risk delta.
+
+h3. Business / technical value
+
+Evidence that remediation worked.
+
+h3. Acceptance criteria
+
+* One action triggers scan + correlation for the asset
+* Result shows risk before/after and closed findings
+* Findings closed this way become verified_fixed
+
+h3. Dependencies
+
+* S4.4 Scan an asset on demand and schedule recurring scans from the UI
+* S5.4 Findings: asset-to-CVE relationship with lifecycle
+* S6.1 Explainable contextual risk score per finding
+
+h3. Testing requirements
+
+Tests with a fake scanner returning a patched version.
+
+h3. Planning
+
+* Backlog ref: S7.2
+* Category: Remaining work
+* Phase: Phase 5 - Remediation, verification and future enhancements
+* Story points: 5 (estimate)","High","5","cyberasset-guard","remediation","","","S4.4","S5.4","S6.1"
+"S7.3","E7","Story","Synchronise remediation status from Jira","","h3. User story / objective
+
+As an analyst, I want finding status to reflect the Jira ticket status, so that I do not update two systems.
+
+h3. Description
+
+Poll or webhook-based sync of ticket status into the finding (in_remediation, done).
+
+h3. Business / technical value
+
+Single source of truth for remediation progress.
+
+h3. Acceptance criteria
+
+* Status mapping configurable
+* Sync failures visible and retried
+* 'Done' in Jira does not close the finding until verified by re-scan
+
+h3. Dependencies
+
+* S7.1 Create Jira remediation tickets from findings
+
+h3. Security considerations
+
+Webhook requests authenticated (shared secret/signature).
+
+h3. Testing requirements
+
+Tests with mocked Jira responses/webhooks.
+
+h3. Planning
+
+* Backlog ref: S7.3
+* Category: Remaining work
+* Phase: Phase 5 - Remediation, verification and future enhancements
+* Story points: 5 (estimate)","Medium","5","cyberasset-guard","remediation","integration","","S7.1","",""
+"S7.4","E7","Story","Forward audit events and findings to Splunk/SIEM","","h3. User story / objective
+
+As a SOC analyst, I want CyberAsset Guard events in our SIEM, so that I can correlate them with other security events.
+
+h3. Description
+
+Future enhancement from the design ('Future: Splunk / SIEM / EDR'). HEC or syslog forwarding.
+
+h3. Business / technical value
+
+Integration into central security monitoring.
+
+h3. Acceptance criteria
+
+* Configurable forwarding of audit events and finding changes
+* Delivery retries and back-pressure
+* No secrets or passwords in forwarded events
+
+h3. Dependencies
+
+* S2.1 Review and merge login, RBAC and audit log (feature/auth-rbac-audit)
+* S5.4 Findings: asset-to-CVE relationship with lifecycle
+
+h3. Security considerations
+
+TLS to SIEM; token from environment.
+
+h3. Testing requirements
+
+Tests with a fake HEC endpoint.
+
+h3. Planning
+
+* Backlog ref: S7.4
+* Category: Future enhancement
+* Phase: Phase 5 - Remediation, verification and future enhancements
+* Story points: 8 (estimate)","Low","8","cyberasset-guard","integration","future","","S2.1","S5.4",""
+"S8.1","E8","Task","Automated tests for the Monitoring module","","h3. User story / objective
+
+Technical objective: the existing Monitoring code (scanner, diff, scheduler, routes) is covered by automated tests before it is extended.
+
+h3. Description
+
+Verified gap: no test file targets app/monitoring; it is only touched by a smoke test (test_monitoring_module_still_available) and by auth/audit tests that replace the scanner with a fake. Untested: nmap XML parsing, change detection (diff.py), scheduler persistence, error paths.
+
+h3. Business / technical value
+
+Safe refactoring for E4 and S1.5.
+
+h3. Acceptance criteria
+
+* Nmap XML parsing tested with recorded fixtures (up/down hosts, open/filtered ports, -sV output)
+* Change detection tested for every change type (host_up/down/new/gone, port_open/closed, service_change, version_change)
+* Scheduler add/remove/restart persistence tested without real timing
+* Error paths: nmap missing, timeout, non-zero exit, invalid XML
+* No real network scans in the test suite
+
+h3. Security considerations
+
+Include malicious XML/banner content in fixtures.
+
+h3. Testing requirements
+
+This task is the testing work; target >= 85% line coverage for app/monitoring.
+
+h3. Planning
+
+* Backlog ref: S8.1
+* Category: Remaining work
+* Phase: Phase 1 - Foundation and hardening
+* Story points: 5 (estimate)","High","5","cyberasset-guard","testing","monitoring","","","",""
+"S8.2","E8","Task","Static analysis, dependency and container vulnerability scanning in CI","","h3. User story / objective
+
+Technical objective: known vulnerable dependencies and insecure code patterns are detected automatically.
+
+h3. Description
+
+Add bandit (or ruff S rules), pip-audit for Python dependencies and Trivy for the Docker image to CI.
+
+h3. Business / technical value
+
+Early detection of vulnerable dependencies in a security product.
+
+h3. Acceptance criteria
+
+* pip-audit and an image scan run on every PR and weekly on main
+* High/critical findings fail the build unless explicitly waived with a reason
+* Results available as CI artefacts
+
+h3. Dependencies
+
+* S1.1 Set up CI pipeline for tests and Docker build
+
+h3. Security considerations
+
+Waivers time-limited and reviewed.
+
+h3. Testing requirements
+
+Introduce a known-vulnerable pin in a test branch to verify detection.
+
+h3. Planning
+
+* Backlog ref: S8.2
+* Category: Remaining work
+* Phase: Phase 1 - Foundation and hardening
+* Story points: 3 (estimate)","High","3","cyberasset-guard","security","ci","","S1.1","",""
+"S8.3","E8","Task","Threat model and independent security review","","h3. User story / objective
+
+Technical objective: security risks of the current architecture are identified and tracked.
+
+h3. Description
+
+STRIDE threat model covering web UI, API, sessions, audit log, Monitoring/nmap execution, SQLite file, backups and Docker deployment. Review by someone other than the implementer.
+
+h3. Business / technical value
+
+Systematic coverage instead of ad-hoc findings.
+
+h3. Acceptance criteria
+
+* Data-flow diagram and threat list committed to docs/
+* Each threat has a mitigation or a backlog item
+* Review findings filed as bugs
+
+h3. Dependencies
+
+* S2.1 Review and merge login, RBAC and audit log (feature/auth-rbac-audit)
+
+h3. Security considerations
+
+Covers B4.1-type issues systematically.
+
+h3. Planning
+
+* Backlog ref: S8.3
+* Category: Remaining work
+* Phase: Phase 1 - Foundation and hardening
+* Story points: 5 (estimate)","High","5","cyberasset-guard","security","","","S2.1","",""
+"S8.4","E8","Task","End-to-end browser tests for the web UI","","h3. User story / objective
+
+Technical objective: UI flows are tested automatically, not only manually.
+
+h3. Description
+
+Verified gap: the UI (app/web) is only checked manually; pytest covers the API and that static files are served. Add Playwright tests for login/logout, role-dependent visibility, asset create/edit/deactivate, validation messages, search/filter, users page and audit page.
+
+h3. Business / technical value
+
+Prevents UI regressions as new modules add sections.
+
+h3. Acceptance criteria
+
+* Playwright suite runs headless in CI against a temporary database
+* Covers viewer, analyst and admin flows
+* Checks that no console errors occur on the main pages
+
+h3. Dependencies
+
+* S1.1 Set up CI pipeline for tests and Docker build
+* S2.1 Review and merge login, RBAC and audit log (feature/auth-rbac-audit)
+
+h3. Security considerations
+
+Include XSS checks with malicious asset names/descriptions.
+
+h3. Testing requirements
+
+This task is the testing work.
+
+h3. Planning
+
+* Backlog ref: S8.4
+* Category: Remaining work
+* Phase: Phase 2 - Asset Monitoring (next development step)
+* Story points: 5 (estimate)","Medium","5","cyberasset-guard","testing","ui","","S1.1","S2.1",""
+"S8.5","E8","Task","Accessibility review of the web UI (WCAG 2.1 AA basics)","","h3. User story / objective
+
+Technical objective: the UI is usable with keyboard and screen readers.
+
+h3. Description
+
+Check labels, focus order, contrast in light/dark mode, dialogs and error announcements.
+
+h3. Business / technical value
+
+Usability for all users; fewer UI defects.
+
+h3. Acceptance criteria
+
+* Automated axe checks in the e2e suite (S8.4) with no serious violations
+* Keyboard-only walkthrough of main flows documented
+
+h3. Dependencies
+
+* S8.4 End-to-end browser tests for the web UI
+
+h3. Testing requirements
+
+axe-core in Playwright.
+
+h3. Planning
+
+* Backlog ref: S8.5
+* Category: Remaining work
+* Phase: Phase 3 - Vulnerability Management
+* Story points: 3 (estimate)","Low","3","cyberasset-guard","ui","testing","","S8.4","",""
+"S8.6","E8","Task","Concurrency test: scheduler scans and API writes on SQLite","","h3. User story / objective
+
+Technical objective: verify SQLite locking behaviour under concurrent scans and requests.
+
+h3. Description
+
+The app uses one SQLite file for scheduler threads and requests (busy_timeout 5 s). Behaviour under load is untested.
+
+h3. Business / technical value
+
+Confidence in the single-instance SQLite design.
+
+h3. Acceptance criteria
+
+* Test runs parallel API writes and scheduled scans (fake scanner) without 'database is locked' errors
+* Documented limits (requests/s) for the MVP
+
+h3. Dependencies
+
+* S8.1 Automated tests for the Monitoring module
+
+h3. Testing requirements
+
+Load test script in tests/ (opt-in).
+
+h3. Planning
+
+* Backlog ref: S8.6
+* Category: Remaining work
+* Phase: Phase 3 - Vulnerability Management
+* Story points: 3 (estimate)","Low","3","cyberasset-guard","testing","database","","S8.1","",""
+"S9.1","E9","Story","TLS reverse-proxy deployment profile","","h3. User story / objective
+
+As an operator, I want a documented HTTPS deployment, so that credentials and session cookies are never sent in clear text.
+
+h3. Description
+
+The app serves plain HTTP and binds Docker to 127.0.0.1. Provide a compose profile with a reverse proxy (e.g. Caddy) terminating TLS, CAG_COOKIE_SECURE=true, CAG_TRUSTED_ORIGINS and HSTS.
+
+h3. Business / technical value
+
+Required before any network exposure of the login.
+
+h3. Acceptance criteria
+
+* Compose profile starts proxy + app; app port not published directly
+* Session cookie has the Secure flag; HSTS header set
+* Origin check works with the public URL
+* Documented certificate options (internal CA / Let's Encrypt)
+
+h3. Dependencies
+
+* S2.1 Review and merge login, RBAC and audit log (feature/auth-rbac-audit)
+
+h3. Security considerations
+
+TLS 1.2+ only; proxy headers trusted only from the proxy.
+
+h3. Testing requirements
+
+Docker test variant verifying HTTPS login and cookie flags.
+
+h3. Planning
+
+* Backlog ref: S9.1
+* Category: Remaining work
+* Phase: Phase 1 - Foundation and hardening
+* Story points: 3 (estimate)","High","3","cyberasset-guard","deployment","security","","S2.1","",""
+"S9.2","E9","Story","Scheduled backups with retention and restore drill","","h3. User story / objective
+
+As an operator, I want automatic, verified backups with a retention policy, so that data can be restored after a failure without manual steps being forgotten.
+
+h3. Description
+
+Backups (python -m app.maintenance backup) are manual and kept forever in CAG_BACKUP_DIR.
+
+h3. Business / technical value
+
+Reliable recovery.
+
+h3. Acceptance criteria
+
+* Backups run on a schedule (documented for host cron and Docker)
+* Retention policy (e.g. 7 daily, 4 weekly) enforced
+* Optional off-host copy documented
+* Quarterly restore drill procedure documented and tested once
+
+h3. Security considerations
+
+Backups contain password hashes and audit data: restrict file permissions; consider encryption.
+
+h3. Testing requirements
+
+Tests for retention logic; Docker test for scheduled backup.
+
+h3. Planning
+
+* Backlog ref: S9.2
+* Category: Remaining work
+* Phase: Phase 2 - Asset Monitoring (next development step)
+* Story points: 5 (estimate)","Medium","5","cyberasset-guard","operations","backup","","","",""
+"T9.3","E9","Task","Structured JSON logging option and log rotation guidance","","h3. User story / objective
+
+Technical objective: logs can be shipped to central logging.
+
+h3. Description
+
+Logs are plain text on stderr.
+
+h3. Business / technical value
+
+Easier operations and SIEM onboarding.
+
+h3. Acceptance criteria
+
+* CAG_LOG_FORMAT=json emits one JSON object per line
+* Docker log rotation documented
+
+h3. Security considerations
+
+No secrets/request bodies in logs (existing rule).
+
+h3. Testing requirements
+
+Unit test for formatter.
+
+h3. Planning
+
+* Backlog ref: T9.3
+* Category: Remaining work
+* Phase: Phase 3 - Vulnerability Management
+* Story points: 2 (estimate)","Low","2","cyberasset-guard","operations","logging","","","",""
+"T9.4","E9","Task","Release process: versioning, changelog and image tags","","h3. User story / objective
+
+Technical objective: reproducible, identifiable releases.
+
+h3. Description
+
+Version is hard-coded in app/__init__.py; no tags or changelog.
+
+h3. Business / technical value
+
+Traceability of deployed versions.
+
+h3. Acceptance criteria
+
+* SemVer tags; CHANGELOG.md
+* Docker images tagged with the version
+* Release checklist documented
+
+h3. Dependencies
+
+* S1.1 Set up CI pipeline for tests and Docker build
+
+h3. Planning
+
+* Backlog ref: T9.4
+* Category: Remaining work
+* Phase: Phase 3 - Vulnerability Management
+* Story points: 2 (estimate)","Low","2","cyberasset-guard","operations","","","S1.1","",""
+"T9.5","E9","Task","Repository hygiene: clean up merged and parked branches","","h3. User story / objective
+
+Technical objective: contributors know which branch is current.
+
+h3. Description
+
+Remote branches monitoring-part1..5 and asset-management are fully merged into main. Local-only branches (asset-management-draft-v1, feature/correlation-risk-action) exist on one machine. Decide with the team what to delete or archive.
+
+h3. Business / technical value
+
+Less confusion; main is the single integration branch.
+
+h3. Acceptance criteria
+
+* Team decision recorded
+* Merged remote branches deleted or tagged
+* Parked prototype either pushed as clearly-labelled reference or discarded
+
+h3. Planning
+
+* Backlog ref: T9.5
+* Category: Technical debt
+* Phase: Phase 0 - Close critical gaps now
+* Story points: 1 (estimate)","Low","1","cyberasset-guard","repository","","","","",""

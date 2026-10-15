@@ -1,0 +1,42 @@
+# HTTPS profile: Caddy terminates TLS in front of the app (ASSET-87).
+#
+#   CAG_DOMAIN=cag.cybermock.io CAG_TLS=admin@cybermock.io \
+#     docker compose -f docker-compose.yml -f docker-compose.tls.yml up -d --build
+#
+# CAG_DOMAIN  host name users open (must resolve to this machine)
+# CAG_TLS     "internal" (default; Caddy's own CA - for internal hosts, import its root certificate)
+#             or an e-mail address to obtain a public Let's Encrypt certificate (needs ports 80/443
+#             reachable from the internet for the ACME challenge)
+#
+# The app port is no longer published; only the proxy is reachable (443, and 80 for the redirect).
+# Requires Docker Compose >= 2.24 (for `!reset`).
+services:
+  app:
+    ports: !reset []
+    environment:
+      CAG_COOKIE_SECURE: "true"
+      CAG_TRUSTED_ORIGINS: https://${CAG_DOMAIN:?set CAG_DOMAIN to the public host name}
+      # Trust X-Forwarded-* from the proxy. Safe because the app port is not published:
+      # only containers on this compose network can reach it.
+      FORWARDED_ALLOW_IPS: "*"
+
+  proxy:
+    image: caddy:2.8.4-alpine
+    depends_on:
+      app:
+        condition: service_healthy
+    ports:
+      - "${CAG_HTTPS_BIND:-0.0.0.0}:${CAG_HTTPS_PORT:-443}:443"
+      - "${CAG_HTTP_BIND:-0.0.0.0}:${CAG_HTTP_PORT:-80}:80"
+    environment:
+      CAG_DOMAIN: ${CAG_DOMAIN}
+      CAG_TLS: ${CAG_TLS:-internal}
+    volumes:
+      - ./deploy/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data          # certificates and Caddy's internal CA - keep it
+      - caddy-config:/config
+    restart: unless-stopped
+
+volumes:
+  caddy-data:
+  caddy-config:

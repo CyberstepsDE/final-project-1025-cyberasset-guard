@@ -1,0 +1,14 @@
+# Normalise line endings (ASSET-46): all text files are stored with LF in the
+# repository and checked out with LF on every platform, so Windows and Linux
+# contributors stop producing CRLF conversion noise in diffs.
+* text=auto eol=lf
+
+# Known binary types — never normalise or diff these as text.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.db binary
+*.apkg binary

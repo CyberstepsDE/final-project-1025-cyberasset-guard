@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CyberAsset Guard — Asset Management</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#/" aria-label="CyberAsset Guard home">
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M12 2 4 5v6c0 5 3.4 9.3 8 11 4.6-1.7 8-6 8-11V5l-8-3Zm0 2.2 6 2.3V11c0 3.9-2.5 7.4-6 8.9-3.5-1.5-6-5-6-8.9V6.5l6-2.3Z"/></svg>
+      <span>CyberAsset Guard</span>
+    </a>
+    <nav class="mainnav" id="mainnav" aria-label="Main" hidden></nav>
+    <div class="usermenu" id="usermenu" hidden></div>
+  </header>
+
+  <main id="view" class="container" tabindex="-1" aria-live="polite"></main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <dialog id="prompt-dialog" aria-labelledby="prompt-title">
+    <form method="dialog" class="dialog-body" id="prompt-form">
+      <h2 id="prompt-title"></h2>
+      <p id="prompt-text" class="muted"></p>
+      <label class="field" for="prompt-input"><span id="prompt-label"></span>
+        <input id="prompt-input" type="password" autocomplete="new-password" maxlength="128"></label>
+      <span class="error" id="prompt-error" role="alert"></span>
+      <div class="actions">
+        <button value="cancel" class="btn" formnovalidate>Cancel</button>
+        <button value="ok" class="btn btn-primary" id="prompt-ok">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="confirm-dialog" aria-labelledby="confirm-title">
+    <form method="dialog" class="dialog-body">
+      <h2 id="confirm-title"></h2>
+      <p id="confirm-text"></p>
+      <div class="actions">
+        <button value="cancel" class="btn">Cancel</button>
+        <button value="ok" class="btn btn-danger" id="confirm-ok">Confirm</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

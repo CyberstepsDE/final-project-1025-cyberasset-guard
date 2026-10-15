@@ -1,0 +1,17 @@
+# TLS reverse proxy for CyberAsset Guard (used by docker-compose.tls.yml).
+{
+	admin off
+}
+
+{$CAG_DOMAIN} {
+	# "internal" = Caddy's own CA; an e-mail address = Let's Encrypt (ACME)
+	tls {$CAG_TLS:internal} {
+		protocols tls1.2 tls1.3
+	}
+	encode gzip
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		-Server
+	}
+	reverse_proxy app:8000
+}

@@ -1,0 +1,54 @@
+# Local MVP deployment: one container, SQLite on a named volume.
+#   docker compose up -d --build      -> http://127.0.0.1:8000
+# Data survives `docker compose down` and container re-creation;
+# only `docker compose down -v` deletes the volumes.
+services:
+  app:
+    build: .
+    image: cyberasset-guard:local
+    ports:
+      # Bound to localhost; put a TLS reverse proxy in front before exposing it on a network.
+      - "127.0.0.1:${CAG_PORT:-8000}:8000"
+    environment:
+      # Paths are fixed to the volumes below (not taken from .env on purpose).
+      CAG_DB_PATH: /data/cyberasset_guard.db
+      CAG_BACKUP_DIR: /backups
+      CAG_LOG_LEVEL: ${CAG_LOG_LEVEL:-INFO}
+      # Shared database server (e.g. Azure PostgreSQL); empty = SQLite on the cag-data volume.
+      CAG_DATABASE_URL: ${CAG_DATABASE_URL:-}
+      CAG_SESSION_IDLE_MINUTES: ${CAG_SESSION_IDLE_MINUTES:-30}
+      CAG_SESSION_MAX_HOURS: ${CAG_SESSION_MAX_HOURS:-12}
+      CAG_COOKIE_SECURE: ${CAG_COOKIE_SECURE:-false}     # set true when served via HTTPS
+      CAG_LOGIN_MAX_FAILURES: ${CAG_LOGIN_MAX_FAILURES:-5}
+      CAG_LOGIN_LOCKOUT_MINUTES: ${CAG_LOGIN_LOCKOUT_MINUTES:-15}
+      CAG_TRUSTED_ORIGINS: ${CAG_TRUSTED_ORIGINS:-}
+      # Daily verified backups to the cag-backups volume, with retention (0 disables).
+      CAG_BACKUP_INTERVAL_HOURS: ${CAG_BACKUP_INTERVAL_HOURS:-24}
+      CAG_BACKUP_KEEP_DAILY: ${CAG_BACKUP_KEEP_DAILY:-7}
+      CAG_BACKUP_KEEP_WEEKLY: ${CAG_BACKUP_KEEP_WEEKLY:-4}
+      # Monitoring scan scope and minimum schedule interval.
+      CAG_SCAN_ALLOWED_NETWORKS: ${CAG_SCAN_ALLOWED_NETWORKS:-10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,127.0.0.0/8,::1/128,fc00::/7}
+      CAG_SCAN_MIN_INTERVAL_SECONDS: ${CAG_SCAN_MIN_INTERVAL_SECONDS:-900}
+      # Jira Cloud tasks for qualifying findings (off unless CAG_JIRA_ENABLED=true in .env).
+      CAG_JIRA_ENABLED: ${CAG_JIRA_ENABLED:-false}
+      CAG_JIRA_BASE_URL: ${CAG_JIRA_BASE_URL:-}
+      CAG_JIRA_PROJECT_KEY: ${CAG_JIRA_PROJECT_KEY:-}
+      CAG_JIRA_EMAIL: ${CAG_JIRA_EMAIL:-}
+      CAG_JIRA_API_TOKEN: ${CAG_JIRA_API_TOKEN:-}
+      CAG_JIRA_ISSUE_TYPE: ${CAG_JIRA_ISSUE_TYPE:-Task}
+      CAG_JIRA_LABEL: ${CAG_JIRA_LABEL:-finding}
+      CAG_JIRA_AUTO_CREATE: ${CAG_JIRA_AUTO_CREATE:-true}
+      CAG_JIRA_MIN_SEVERITY: ${CAG_JIRA_MIN_SEVERITY:-HIGH}
+      CAG_JIRA_INCLUDE_LOW_CONFIDENCE: ${CAG_JIRA_INCLUDE_LOW_CONFIDENCE:-false}
+      CAG_JIRA_DEFAULT_ASSIGNEE: ${CAG_JIRA_DEFAULT_ASSIGNEE:-}
+      CAG_JIRA_TIMEOUT_SECONDS: ${CAG_JIRA_TIMEOUT_SECONDS:-10}
+      CAG_JIRA_MAX_RETRIES: ${CAG_JIRA_MAX_RETRIES:-3}
+      CAG_PUBLIC_URL: ${CAG_PUBLIC_URL:-}
+    volumes:
+      - cag-data:/data
+      - cag-backups:/backups
+    restart: unless-stopped
+
+volumes:
+  cag-data:
+  cag-backups:

@@ -1,0 +1,19 @@
+# Trivy waivers for the container image scan (ASSET-81).
+#
+# A line that is not a comment is a vulnerability id (CVE-.. / GHSA-..) to ignore.
+# Every waiver carries a reason and an expiry date and is reviewed at/before expiry.
+#
+# Baseline findings (2026-10-14): all four are in the image TOOLCHAIN, not the
+# application's dependencies (pip-audit confirms the app deps are clean). urllib3 and
+# msgpack are pip's *vendored* copies (pip/_vendor/*); setuptools is the base-image
+# build tool. None are reachable at application runtime — the container runs uvicorn
+# as a non-root user and never invokes pip/setuptools. Permanent fix: the base-image
+# upgrade queued by Dependabot (python:3.14-slim, PRs #19/#20).
+
+# msgpack, pip-vendored (pip/_vendor/msgpack); not runtime-reachable. expires: 2026-12-31
+GHSA-6v7p-g79w-8964
+# setuptools PackageIndex path traversal; base-image build tool, not runtime-reachable. expires: 2026-12-31
+CVE-2025-47273
+# urllib3, pip-vendored (pip/_vendor/urllib3); not runtime-reachable. expires: 2026-12-31
+CVE-2026-97687
+CVE-2026-97689

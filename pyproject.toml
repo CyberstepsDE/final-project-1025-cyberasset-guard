@@ -1,0 +1,39 @@
+# Tooling configuration for CyberAsset Guard (ASSET-46).
+# ruff = linter + formatter; mypy = static type checking. There is no build
+# system here (the app is run directly / via Docker), so this file only carries
+# tool settings.
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"              # the project's documented minimum Python
+# docs/backlog holds generated data and helper scripts, not application code.
+extend-exclude = ["docs"]
+
+[tool.ruff.lint]
+# A pragmatic, security-aware rule set. "S" is flake8-bandit — a first SAST layer
+# (ASSET-46 security note). Findings in production code are triaged with targeted
+# `# noqa: <rule>` comments that explain why they are safe.
+select = ["E", "F", "W", "I", "UP", "B", "S"]
+ignore = [
+    "B008",   # FastAPI declares dependencies as argument defaults, e.g. Depends()/Query()/Path()
+    "UP042",  # Enum -> StrEnum is a behavioural change, out of scope for this ticket
+    "E501",   # line length is owned by the formatter (ruff format, run via pre-commit)
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests legitimately use assert and subprocess with partial paths, and carry
+# test-only credentials; the bandit (S) rules target production code.
+"tests/**" = ["S"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app", "conftest"]
+
+[tool.mypy]
+python_version = "3.11"
+plugins = ["pydantic.mypy"]           # understands Pydantic model construction/validators
+ignore_missing_imports = true         # third-party packages without type stubs
+warn_redundant_casts = true
+warn_unused_ignores = true
+# Type-check the core packages now; Monitoring starts relaxed (ASSET-46) and can
+# be tightened in a follow-up. CI runs: mypy app/assets app/auth app/audit
+files = ["app/assets", "app/auth", "app/audit"]

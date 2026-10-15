@@ -1,0 +1,10 @@
+# CyberAsset Guard — runtime dependencies (Python >= 3.11).
+# Exact, tested versions are pinned in constraints.txt:
+#   pip install -r requirements.txt -c constraints.txt
+fastapi>=0.115,<1.0
+uvicorn[standard]>=0.30,<1.0     # [standard] includes python-dotenv for --env-file
+pydantic>=2.7,<3
+sqlalchemy>=2.0,<3               # ORM (all modules)
+alembic>=1.13,<2                 # schema migrations (baseline + future changes)
+psycopg[binary]>=3.2,<4          # PostgreSQL driver (CAG_DATABASE_URL, e.g. Azure PostgreSQL)
+apscheduler>=3.10,<4             # Monitoring Part 4: scheduled scans (4.x has a different API)
