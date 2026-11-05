@@ -4,7 +4,7 @@
 # nmap's TCP connect scan (-sT), which needs no privileges. SYN/UDP/OS-detection
 # scans would require the NET_RAW/NET_ADMIN capabilities, which are deliberately
 # NOT granted here — the application never requests them.
-FROM python:3.14-slim
+FROM python:3.15-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
